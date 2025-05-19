@@ -202,6 +202,7 @@ with tab3:
                 top_anomalies['İade Oranı'] = top_anomalies['İade Oranı'] * 100  # yüzde olarak
                 st.dataframe(top_anomalies)
 
+# Kullanım Kılavuzu Sekmesi
 with tab4:
     st.header("Kullanım Kılavuzu ve Teknik Detaylar")
     
