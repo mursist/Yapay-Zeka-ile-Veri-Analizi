@@ -203,32 +203,280 @@ with tab3:
                 st.dataframe(top_anomalies)
 
 with tab4:
-    st.header("Kullanım Kılavuzu")
+    st.header("Kullanım Kılavuzu ve Teknik Detaylar")
     
-    st.subheader("Genel Bakış")
-    st.write("Bu uygulama, Python'da geliştirilmiş veri analizi ve yapay zeka fonksiyonlarını kullanıcı dostu bir arayüz üzerinden erişilebilir hale getirmek için tasarlanmıştır.")
+    # Genel Bakış
+    st.subheader("1. Genel Bakış")
+    st.write("Bu uygulama, veri analizi ve yapay zeka yöntemlerini kullanarak satış tahmini, müşteri segmentasyonu ve anomali tespiti yapmanızı sağlayan etkileşimli bir araçtır.")
     st.markdown("""
-    - Zaman Serisi Analizi ve Satış Tahmini
-    - Müşteri Segmentasyonu
-    - Anomali Tespiti
+    - **Zaman Serisi Analizi ve Satış Tahmini**: Geçmiş verileri analiz ederek gelecek satışlarını tahmin eder
+    - **Müşteri Segmentasyonu**: Benzer davranış gösteren müşterileri gruplandırır
+    - **Anomali Tespiti**: Normal müşteri davranışından sapan anormal desenleri tespit eder
     """)
     
-    st.subheader("Zaman Serisi Analizi")
+    # Zaman Serisi Analizi 
+    st.subheader("2. Zaman Serisi Analizi ve Satış Tahmini")
     st.write("Bu modül, geçmiş satış verilerini analiz ederek gelecekteki satışları tahmin etmek için kullanılır.")
-    st.markdown("""
-    **Kullanılan Yöntemler:** ARIMA modeli, RandomForest ve XGBoost algoritmaları.
     
-    **CSV Formatı:** Dosyanızda 'date' ve 'sales' sütunları bulunmalıdır.
+    # Veri Formatı
+    st.write("#### 2.1. Veri Formatı")
+    st.markdown("""
+    CSV dosyanızın aşağıdaki sütunları içermesi gerekir:
+    - `date`: YYYY-MM-DD formatında tarih (ör. 2022-01-01)
+    - `sales`: Sayısal satış değeri
+    
+    İsteğe bağlı olarak şu sütunları da ekleyebilirsiniz:
+    - `is_holiday`: Tatil günü olup olmadığını belirten 1/0 değeri
+    - `is_promotion`: Promosyon dönemi olup olmadığını belirten 1/0 değeri
+    - `weekday`: Haftanın günü (0-6, 0=Pazartesi)
+    - `month`: Ay (1-12)
+    - `year`: Yıl
+    - `is_weekend`: Hafta sonu olup olmadığını belirten 1/0 değeri
     """)
     
-    st.subheader("Müşteri Segmentasyonu")
-    st.write("Müşterilerinizi benzer davranış özelliklerine göre gruplara ayırmak için K-means algoritması kullanılır.")
+    # Hesaplama Adımları
+    st.write("#### 2.2. Hesaplama Adımları")
+    
+    st.write("##### 2.2.1. Zaman Serisi Ayrıştırma (Seasonal Decomposition)")
     st.markdown("""
-    **CSV Formatı:** Dosyanızda 'customer_id', 'avg_purchase_value', 'purchase_frequency' ve 'return_rate' sütunları bulunmalıdır.
+    Zaman serisi ayrıştırma, satış verilerinin içindeki farklı bileşenleri ayrıştırmak için kullanılır:
+    
+    1. **Gözlemlenen Satışlar**: Orijinal zaman serisi verisi
+    2. **Trend Bileşeni**: Uzun vadeli artış veya azalış trendi
+       - Hareketli ortalama (moving average) yöntemi ile hesaplanır
+       - Formül: Belirli bir periyot boyunca verilerin ortalaması alınır
+    3. **Mevsimsel Bileşen**: Tekrarlanan, periyodik dalgalanmalar
+       - Trendsiz verilerin mevsimsel periyotlarına göre ortalaması alınarak hesaplanır
+       - Günlük, haftalık, aylık ve yıllık desenler içerebilir
+    4. **Artık (Residual) Bileşen**: Trend ve mevsimsellikle açıklanamayan değişimler
+       - Formül: Gözlemlenen Veri - (Trend + Mevsimsellik)
+    
+    Bu ayrıştırma için statsmodels kütüphanesinin `seasonal_decompose` fonksiyonunu kullanıyoruz.
     """)
     
-    st.subheader("Anomali Tespiti")
-    st.write("Normal müşteri davranışından sapan anormal desenleri tespit etmek için Isolation Forest algoritması kullanılır.")
+    st.write("##### 2.2.2. ARIMA Modeli ile Satış Tahmini")
     st.markdown("""
-    **Anomali Eşiği:** Veri setinin yüzde kaçının anormal olarak işaretleneceğini belirler.
+    ARIMA (AutoRegressive Integrated Moving Average) modelini kullanarak gelecek satışlarını tahmin ediyoruz:
+    
+    1. **Otoregresif Bileşen (AR - p)**: 
+       - Geçmiş değerler kullanılarak gelecek değerlerin tahmini
+       - Formül: Yt = c + φ1*Y(t-1) + φ2*Y(t-2) + ... + φp*Y(t-p) + εt
+       - Modelimizde p=5 kullanılıyor (5 gecikmeli değer)
+    
+    2. **Entegrasyon Derecesi (I - d)**:
+       - Zaman serisini durağanlaştırmak için kullanılan fark alma işlemi
+       - Modelimizde d=1 kullanılıyor (birinci dereceden fark alma)
+    
+    3. **Hareketli Ortalama Bileşeni (MA - q)**:
+       - Geçmiş hata terimlerini kullanarak gelecek değerleri tahmin etme
+       - Formül: Yt = c + εt + θ1*ε(t-1) + θ2*ε(t-2) + ... + θq*ε(t-q)
+       - Modelimizde q=2 kullanılıyor (2 gecikmeli hata terimi)
+    
+    4. **Tahmin ve Güven Aralığı**:
+       - Model ile gelecek için nokta tahminleri yapılır
+       - %95 güven aralığı ile tahmin belirsizliği gösterilir
+    
+    Bu tahmin için statsmodels kütüphanesinin `ARIMA` modelini kullanıyoruz.
+    """)
+    
+    st.write("##### 2.2.3. Makine Öğrenmesi Modelleri ile Satış Tahmini")
+    st.markdown("""
+    İki farklı makine öğrenmesi algoritması kullanarak alternatif tahminler yapıyoruz:
+    
+    1. **RandomForest Regressor**:
+       - Çok sayıda karar ağacının ortalamasını alarak çalışır
+       - Aşırı öğrenmeye (overfitting) karşı dirençlidir
+       - Parametreler:
+         - n_estimators=100 (100 farklı ağaç)
+         - random_state=42 (tekrarlanabilirlik için)
+    
+    2. **XGBoost Regressor**:
+       - Gradient boosting tekniğini kullanır
+       - Her adımda bir önceki modelin hatalarını düzeltmeye çalışır
+       - Parametreler:
+         - n_estimators=100 (100 iterasyon)
+         - learning_rate=0.1 (öğrenme hızı)
+         - max_depth=7 (ağaç derinliği)
+    
+    3. **Özellik Önemliliği**:
+       - Hangi faktörlerin satışları en çok etkilediğini gösterir
+       - RandomForest modelinin feature_importances_ özelliği kullanılır
+    
+    4. **Çapraz Doğrulama**:
+       - Zaman serisi verilerinde özel bir çapraz doğrulama olan TimeSeriesSplit kullanılır
+       - Model performansını değerlendirmek için RMSE (Root Mean Squared Error) kullanılır
+    """)
+    
+    # Müşteri Segmentasyonu
+    st.subheader("3. Müşteri Segmentasyonu")
+    st.write("Bu modül, müşterilerinizi benzer davranış özelliklerine göre gruplara ayırmak için kullanılır.")
+    
+    # Veri Formatı
+    st.write("#### 3.1. Veri Formatı")
+    st.markdown("""
+    CSV dosyanızın aşağıdaki sütunları içermesi gerekir:
+    - `customer_id`: Müşteri kimliği (ör. CUST_00001)
+    - `avg_purchase_value`: Ortalama satın alma değeri (ör. 5000)
+    - `purchase_frequency`: Satın alma sıklığı (ör. 12 - yıllık satın alma sayısı)
+    - `return_rate`: İade oranı (0-1 arası, ör. 0.05 = %5)
+    
+    İsteğe bağlı olarak şu sütunları da ekleyebilirsiniz:
+    - `loyalty_years`: Müşteri sadakat yılı
+    - `avg_basket_size`: Ortalama sepet büyüklüğü (ürün sayısı)
+    - `pct_discount_used`: İndirim kullanım oranı (0-1 arası)
+    """)
+    
+    # Hesaplama Adımları
+    st.write("#### 3.2. Hesaplama Adımları")
+    
+    st.write("##### 3.2.1. Veri Ön İşleme")
+    st.markdown("""
+    Segmentasyon öncesi veri hazırlığı:
+    
+    1. **Veri Normalizasyonu**:
+       - Farklı ölçeklerdeki özellikleri 0-1 arasına getirme
+       - StandardScaler kullanılır: z = (x - μ) / σ
+       - Burada x: orijinal değer, μ: ortalama, σ: standart sapma
+    
+    2. **Özellik Seçimi**:
+       - Segmentasyon için en bilgilendirici özellikler seçilir
+       - Kullanılan özellikler: 'avg_purchase_value', 'purchase_frequency', 'return_rate', 'loyalty_years', 'customer_value'
+    """)
+    
+    st.write("##### 3.2.2. K-means Kümeleme")
+    st.markdown("""
+    K-means algoritması ile müşteri segmentasyonu:
+    
+    1. **Optimal Küme Sayısı Belirleme**:
+       - Silhouette skoru kullanılır: -1 (kötü) ile 1 (mükemmel) arası bir değer
+       - Formül: s(i) = (b(i) - a(i)) / max{a(i), b(i)}
+         - a(i): Bir noktanın kendi kümesindeki diğer noktalara olan ortalama mesafesi
+         - b(i): Bir noktanın en yakın komşu kümedeki noktalara olan ortalama mesafesi
+       - 2'den 8'e kadar her küme sayısı için hesaplanır ve en yüksek skora sahip küme sayısı seçilir
+    
+    2. **K-means Algoritması**:
+       - 1) Rastgele k adet merkez nokta seçilir (başlangıç noktaları)
+       - 2) Her veri noktası en yakın merkeze atanır
+       - 3) Her küme için yeni merkez hesaplanır (kümedeki noktaların ortalaması)
+       - 4) Merkezler değişmeyene kadar adım 2 ve 3 tekrarlanır
+       - Uzaklık ölçümü için Öklid mesafesi kullanılır: d(x,y) = √Σ(xi-yi)²
+    
+    3. **Küme Analiziı**:
+       - Her kümenin merkezi özelliklerini belirlemek
+       - Her kümede kaç müşteri olduğunu hesaplamak
+       - Kümeleri görselleştirmek (2B ve 3B grafikler)
+    """)
+    
+    # Anomali Tespiti
+    st.subheader("4. Anomali Tespiti")
+    st.write("Bu modül, normal müşteri davranışından sapan anormal desenleri tespit etmek için kullanılır.")
+    
+    # Hesaplama Adımları
+    st.write("#### 4.1. Hesaplama Adımları")
+    
+    st.write("##### 4.1.1. Isolation Forest Algoritması")
+    st.markdown("""
+    Isolation Forest, anormallikleri diğer noktalardan "izole etme" kolaylığına göre tespit eder:
+    
+    1. **Çalışma Prensibi**:
+       - Normal noktaları izole etmek daha fazla bölme gerektirir (daha derin ağaç)
+       - Anormal noktalar daha az bölme ile izole edilebilir (daha sığ ağaç)
+       - Temel varsayım: Anormal noktalar, daha az sayıda ve normal noktalardan daha uzaktadır
+    
+    2. **Algoritma Adımları**:
+       - 1) Veri kümesinden rastgele bir alt küme alınır
+       - 2) Rastgele bir özellik seçilir
+       - 3) Seçilen özellik için rastgele bir bölme değeri belirlenir
+       - 4) Veri iki alt kümeye bölünür
+       - 5) İzolasyon tamamlanana veya maksimum ağaç derinliğine ulaşılana kadar tekrarlanır
+       - 6) Çoklu ağaçlar oluşturularak ortalama yol uzunluğu hesaplanır
+    
+    3. **Anomali Skoru Hesaplama**:
+       - s(x,n) = 2^(-E(h(x))/c(n))
+       - E(h(x)): Noktanın ortalama yol uzunluğu
+       - c(n): Normal dağılımlı veride ortalama yol uzunluğu
+       - Skor 0'a yaklaştıkça daha anormal, 0.5'e yaklaştıkça daha normal
+    
+    4. **Contamination (Kirlilik) Parametresi**:
+       - Verinin ne kadarının anormal olarak işaretleneceğini belirler
+       - Uygulamada 0.05 (veri setinin %5'i) olarak ayarlanmıştır
+    """)
+    
+    st.write("##### 4.1.2. Anomali Görselleştirme")
+    st.markdown("""
+    Tespit edilen anormal müşterilerin görselleştirilmesi:
+    
+    1. **Scatter Plot (Dağılım Grafiği)**:
+       - x-ekseni: Ortalama satın alma değeri
+       - y-ekseni: Satın alma sıklığı
+       - Normal müşteriler mavi, anormal müşteriler kırmızı ile gösterilir
+    
+    2. **Anomali Skoru Histogramı**:
+       - x-ekseni: Anomali skoru (düşük değerler anomaliyi gösterir)
+       - y-ekseni: Müşteri sayısı
+       - Anomali eşiği kırmızı dikey çizgi ile gösterilir
+    
+    3. **En Anormal Müşteri Listesi**:
+       - Anomali skoru en düşük olan müşterilerin özellikleri listelenir
+       - Bu müşterilerin davranış özellikleri incelenerek anomali nedeni anlaşılabilir
+    """)
+    
+    # Metrikler ve Değerlendirme
+    st.subheader("5. Değerlendirme Metrikleri")
+    st.markdown("""
+    #### 5.1. Satış Tahminleri için Metrikler
+    
+    1. **RMSE (Root Mean Squared Error - Kök Ortalama Kare Hata)**:
+       - Tahmin hatalarının karesinin ortalamasının kökü
+       - Formül: RMSE = √(Σ(yi - ŷi)² / n)
+       - Düşük değerler daha iyi tahmin anlamına gelir
+    
+    2. **MAE (Mean Absolute Error - Ortalama Mutlak Hata)**:
+       - Tahmin hatalarının mutlak değerlerinin ortalaması
+       - Formül: MAE = Σ|yi - ŷi| / n
+       - RMSE'ye göre büyük hatalara daha az duyarlıdır
+    
+    #### 5.2. Müşteri Segmentasyonu için Metrikler
+    
+    1. **Silhouette Katsayısı**:
+       - Kümelemenin kalitesini ölçer
+       - -1 ile 1 arasında değer alır (1'e yakın değerler daha iyi)
+       - Kümelerin ne kadar sıkı ve ayrık olduğunu değerlendirir
+    
+    2. **İnertia (KMeans içinde)**:
+       - Her noktanın kendi küme merkezine olan uzaklıklarının karelerinin toplamı
+       - Düşük değerler daha kompakt kümeler anlamına gelir
+    
+    #### 5.3. Anomali Tespiti için Metrikler
+    
+    1. **Anomali Skoru**:
+       - Isolation Forest tarafından üretilen -1'e yakın skorlar güçlü anomalileri gösterir
+       - Normal gözlemler genellikle 0'a yakın skorlara sahiptir
+    """)
+    
+    # Pratik İpuçları
+    st.subheader("6. Pratik İpuçları")
+    st.markdown("""
+    1. **Veri Hazırlama**:
+       - Tarih sütununu doğru formatta olduğundan emin olun (YYYY-MM-DD)
+       - Eksik değerleri doldurun veya ilgili satırları kaldırın
+       - Aykırı değerleri tespit edin ve gerekirse düzeltin
+    
+    2. **Optimum Parametre Seçimi**:
+       - ARIMA için farklı p, d, q değerlerini deneyin
+       - Kümeleme için farklı küme sayılarını test edin
+       - Anomali eşiğini veri setinize göre ayarlayın
+    
+    3. **Tahmin Sonuçlarını Değerlendirme**:
+       - Tahminleri yalnızca RMSE ile değil, grafiksel olarak da inceleyin
+       - Özellikle büyük olaylara (örn. tatiller, promosyonlar) dikkat edin
+    
+    4. **Müşteri Segmentlerini Yorumlama**:
+       - Her segmentin belirgin özelliklerini tanımlayın
+       - Segmentlere anlamlı isimler verin (ör. "Yüksek Değerli Seyrek Alıcılar")
+       - Segmentlere özel pazarlama stratejileri geliştirin
+    
+    5. **Anomalileri İnceleme**:
+       - Her anomaliyi ayrı ayrı inceleyin ve nedenini anlamaya çalışın
+       - Sistemsel bir hata mı yoksa gerçek bir anomali mi olduğunu doğrulayın
     """)
